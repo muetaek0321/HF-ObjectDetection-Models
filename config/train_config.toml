@@ -1,0 +1,23 @@
+input_path = "../_dataset/VOC2012/"
+output_path = "./results"
+gpu = 0
+
+[parameters]
+num_epoches = 10
+batch_size = 48
+classes = [
+    "person", "bird", "cat", "cow", "dog", "horse", "sheep", 
+    "aeroplane", "bicycle", "boat", "bus", "car", "motorbike", 
+    "train", "bottle", "chair", "diningtable", 
+    "pottedplant", "sofa", "tvmonitor"
+]
+
+# 入力画像サイズ: (height, width)
+input_size = [512, 512]
+
+# データセットの形式（"coco" or "pascal_voc"）
+dataset_type = "pascal_voc"
+
+[optimizer]
+lr = 0.001
+weight_decay = 0.0005
