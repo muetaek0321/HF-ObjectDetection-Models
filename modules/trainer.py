@@ -54,11 +54,10 @@ class Trainer:
             pixel_values = batch["pixel_values"].to(self.device)
             labels = [{key: value.to(self.device) for key, value in targets.items()} 
                       for targets in batch["labels"]]
-            
-            self.optimizer.zero_grad()
 
             output = self.model(pixel_values=pixel_values, labels=labels)
 
+            self.optimizer.zero_grad()
             output.loss.backward()
             self.optimizer.step()
             
@@ -80,7 +79,7 @@ class Trainer:
         self.model.eval()
         iter_val_loss = []
         
-        for batch in tqdm(self.train_dataloader, desc="val"):
+        for batch in tqdm(self.val_dataloader, desc="val"):
             pixel_values = batch["pixel_values"].to(self.device)
             labels = [{key: value.to(self.device) for key, value in targets.items()} 
                       for targets in batch["labels"]]
@@ -98,6 +97,7 @@ class Trainer:
         if self.best_loss > epoch_val_loss:
             self.best_model = deepcopy(self.model)
             self.best_epoch = epoch
+            self.best_loss = epoch_val_loss
             
         return epoch_val_loss
         
@@ -124,7 +124,7 @@ class Trainer:
         """
         epoch = len(self.log["epoch"]) # 現在までのエポック数を取得
         
-        fig = plt.figure(figsize=(10,10))
+        fig = plt.figure()
         ax = fig.add_subplot(title=f"Loss (Epoch:{epoch})")
         ax.plot(self.log["epoch"], self.log["train_loss"], c='red', label='train')
         ax.plot(self.log["epoch"], self.log["val_loss"], c='blue', label='val')
@@ -134,6 +134,8 @@ class Trainer:
         
         plt.tight_layout()
         plt.savefig(self.output_path.joinpath("loss_curve.png"))
+        
+        plt.close()
         
     def output_log(
         self,

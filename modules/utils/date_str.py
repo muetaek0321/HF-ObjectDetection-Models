@@ -5,7 +5,7 @@ __all__ = ["now_date_str"]
 
 
 def now_date_str(
-    fmt: str = "%Y%m%d-%H%M%S"
+    fmt: str = "%Y-%m-%d_%H-%M-%S"
 ) -> str:
     """現在時刻の文字列を作成
     

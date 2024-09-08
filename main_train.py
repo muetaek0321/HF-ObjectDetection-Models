@@ -48,15 +48,15 @@ def main():
         device = torch.device("cpu")
     print(f"使用デバイス {device}")
     
-    # データの読み込み
-    train_img_list, train_anno_list, val_img_list, val_anno_list = make_pathlist_voc(input_path)
-    print(f"データ分割 train:val = {len(train_img_list)}:{len(val_img_list)}")
+    # データのパスリストを作成
+    train_df, val_df, test_df = make_pathlist_voc(input_path, is_split=True)
+    print(f"データ分割 train:val = {len(train_df)}:{len(val_df)}")
     
     # Datasetの作成
-    train_dataset = DETRDataset(train_img_list, train_anno_list, classes, input_size,
-                                dataset_type="pascal_voc", phase="train")
-    val_dataset = DETRDataset(val_img_list, val_anno_list, classes, input_size,
-                              dataset_type="pascal_voc", phase="val")
+    train_dataset = DETRDataset(train_df["image"], train_df["annotation"], classes, 
+                                input_size, dataset_type="pascal_voc", phase="train")
+    val_dataset = DETRDataset(val_df["image"], val_df["annotation"], classes, 
+                              input_size, dataset_type="pascal_voc", phase="val")
     
     # DataLoaderの作成
     train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True, num_workers=0,
@@ -68,7 +68,9 @@ def main():
     id2label = {str(i): class_name for i, class_name in enumerate(classes)}
     label2id = {class_name: i for i, class_name in enumerate(classes)}
     config = DetrConfig(id2label=id2label, label2id=label2id)
-    model = DetrForObjectDetection(config)
+    model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50", 
+                                                   config=config,
+                                                   ignore_mismatched_sizes=True)
     
     # optimizerの定義
     optimizer = AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -105,6 +107,14 @@ def main():
     # モデルとログの出力
     trainer.save_weight()
     trainer.output_log()
+    
+    # 入力データの一覧をファイル出力
+    train_df.to_csv(output_path.joinpath("input_data", "train.csv"), 
+                    encoding="utf-8-sig", index=False)
+    val_df.to_csv(output_path.joinpath("input_data", "val.csv"), 
+                    encoding="utf-8-sig", index=False)
+    test_df.to_csv(output_path.joinpath("input_data", "test.csv"), 
+                    encoding="utf-8-sig", index=False)
 
 
 if __name__ == "__main__":

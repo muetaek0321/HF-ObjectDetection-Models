@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+from albumentations.core.bbox_utils import normalize_bboxes
 
 from .augmentation import get_transform
 from modules.utils import imread_jpn
@@ -74,17 +75,7 @@ class AnnoXmlToList(object):
             label_idx = self.classes.index(name)
             label_datas.append(label_idx)
 
-        return np.array(bbox_datas), np.array(label_datas)
-    
-    
-def bbox_normalize(
-    bboxes: list | np.ndarray | torch.Tensor,
-    img_w: int,
-    img_h: int
-) -> list | np.ndarray | torch.Tensor:
-    """BBoxを正規化
-    """
-    
+        return np.array(bbox_datas), np.array(label_datas)    
 
 
 class DETRDataset(Dataset):
@@ -159,20 +150,15 @@ class DETRDataset(Dataset):
         bboxes_trans = transformed['bboxes']
         labels_trans = transformed['labels']
         
-        # BBoxごとのareaを計算
-        boxes = torch.as_tensor(bboxes_trans, dtype=torch.float32)
-        area = boxes[:,2] * boxes[:,3]
-        
         # BBoxを正規化
         h, w = self.input_size
-        boxes_norm = boxes / torch.as_tensor([w, h, w, h], dtype=torch.float32)
+        boxes_norm = normalize_bboxes(bboxes_trans, rows=h, cols=w)
         
         # モデルの入力形式に変換  
         targets = {
             "image_id": torch.tensor([index]),
-            "boxes": boxes_norm,
+            "boxes": torch.as_tensor(boxes_norm, dtype=torch.float32),
             "class_labels": torch.as_tensor(labels_trans, dtype=torch.long),
-            "area": area
         }
         
         return {"pixel_values": img_trans, "labels": targets}

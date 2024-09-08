@@ -1,9 +1,13 @@
 from pathlib import Path
 
+import pandas as pd
+
 
 def make_pathlist_voc(
-    dataset_path: Path
-) -> tuple[list[Path], list[Path], list[Path], list[Path]]:
+    dataset_path: Path,
+    is_split: bool = False,
+    test_data_ratio: float = 0.5
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """データセットフォルダを読み込み、画像とアノテーションのパスリストを作成
        (VOCDataset用)
        
@@ -19,7 +23,7 @@ def make_pathlist_voc(
     
     def image_and_annotation_path(
         data_names: list[str]
-    ) -> tuple[list[str], list[str]]:
+    ) -> pd.DataFrame:
         """ファイル名のリストからパスリストを作成
         
         Args:
@@ -32,16 +36,16 @@ def make_pathlist_voc(
         img_dir_path = dataset_path.joinpath("JPEGImages")
         anno_dir_path = dataset_path.joinpath("Annotations")
         
-        img_path_list, anno_path_list = [], []
+        input_data_dict = {"image": [], "annotation": []}
         for name in data_names:
             # 空の文字列はスキップ
             if name == "":
                 continue
             
-            img_path_list.append(img_dir_path.joinpath(f"{name}.jpg"))
-            anno_path_list.append(anno_dir_path.joinpath(f"{name}.xml"))
+            input_data_dict["image"].append(img_dir_path.joinpath(f"{name}.jpg"))
+            input_data_dict["annotation"].append(anno_dir_path.joinpath(f"{name}.xml"))
             
-        return img_path_list, anno_path_list
+        return pd.DataFrame(input_data_dict)
     
     # 訓練用、検証用のデータをそれぞれ取得
     data_names_path = dataset_path.joinpath("ImageSets", "Main")
@@ -49,14 +53,23 @@ def make_pathlist_voc(
     ## 訓練用
     with open(data_names_path.joinpath("train.txt"), mode="r", encoding="utf-8") as ft:
         train_data_names = ft.read().split("\n")
-        train_img_list, train_anno_list = image_and_annotation_path(train_data_names)    
+        train_df = image_and_annotation_path(train_data_names)    
         
     ## 検証用
     with open(data_names_path.joinpath("val.txt"), mode="r", encoding="utf-8") as fv:
         val_data_names = fv.read().split("\n")
-        val_img_list, val_anno_list = image_and_annotation_path(val_data_names)
+        val_df = image_and_annotation_path(val_data_names)
         
-    return train_img_list, train_anno_list, val_img_list, val_anno_list
+    # 検証用の一部をテスト用に回す
+    if is_split:
+        split = int(len(val_df)*test_data_ratio)
+        val_df_sp = val_df.iloc[:split, :]
+        test_df = val_df.iloc[split:, :]
+        
+        return train_df, val_df_sp, test_df
+    
+    else:
+        return train_df, val_df
     
     
     
