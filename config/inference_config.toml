@@ -1,0 +1,9 @@
+train_result_path = "./results/2024-10-28_23-59-21"
+input_path = "../face_detection/imgs/"
+output_path = ""
+gpu = 0
+
+[parameter]
+threshold = 0.05
+
+
