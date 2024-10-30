@@ -1,14 +1,11 @@
 from pathlib import Path
-from copy import deepcopy
 
 import torch
 from torch.nn.functional import softmax 
 from transformers import DetrForObjectDetection
+from transformers.image_transforms import center_to_corners_format
 from albumentations.core.bbox_utils import denormalize_bboxes
-import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
-from tqdm import tqdm
 
 from .loader.augmentation import get_transform
 from .utils import imread_jpn, visualize_bbox
@@ -48,6 +45,7 @@ class Inference:
         """
         # 画像読み込み
         img = imread_jpn(img_path)
+        h, w = img.shape[:2]
         
         # 画像の前処理を適用
         pixel_values = self.transform(image=img)['image']
@@ -56,9 +54,12 @@ class Inference:
         
         with torch.no_grad():
             outputs = self.model(pixel_values=pixel_values)
-        
+                
         # 予測BBoxと予測ラベルを取得
         logits, pred_bboxes = outputs.logits, outputs.pred_boxes
+        
+        # 予測BBoxを変換
+        pred_bboxes = center_to_corners_format(pred_bboxes)
         
         # スコアと予測ラベルを計算
         prob = softmax(logits, -1)
@@ -72,7 +73,7 @@ class Inference:
         # 閾値以上のスコアの予測のみを抽出
         vis_idx = np.where(scores > self.threshold)
         labels = pred_labels[vis_idx]
-        bboxes = pred_bboxes[vis_idx]
+        bboxes = denormalize_bboxes(pred_bboxes[vis_idx], rows=h, cols=w)
         
-        visualize_bbox(img, bboxes, labels, "coco", self.output_path.joinpath(img_path.name))
+        visualize_bbox(img, bboxes, labels, "voc", self.output_path.joinpath(img_path.name))
     

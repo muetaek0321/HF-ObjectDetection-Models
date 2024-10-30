@@ -7,9 +7,11 @@ import torch
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
 import toml
-from transformers import DetrConfig, DetrForObjectDetection
+from tqdm import tqdm
 
+from modules.models import get_model_train
 from modules.trainer import Trainer
+from modules.Inference import Inference
 from modules.custom_collate_fn import collate_fn
 from modules.utils import fix_seeds, now_date_str
 from modules.loader import make_pathlist_voc, DETRDataset
@@ -25,10 +27,14 @@ def main():
     # 設定ファイルの読み込み
     with open(CONFIG_PATH, mode="r", encoding="utf-8") as f:
         cfg = toml.load(f)
+        
+    ## モデル名称
+    model_name = cfg["model_name"]
+    use_pretrained = cfg["use_pretrained"]
     
     ## 入出力パス
     input_path = Path(cfg["input_path"])
-    output_path = Path(cfg["output_path"]).joinpath(now_date_str())
+    output_path = Path(cfg["output_path"]).joinpath(f"{model_name}_{now_date_str()}")
     output_path.mkdir(parents=True, exist_ok=True)
     
     ## 各種パラメータ
@@ -36,7 +42,9 @@ def main():
     batch_size = cfg["parameters"]["batch_size"]
     classes = cfg["parameters"]["classes"]
     input_size = cfg["parameters"]["input_size"]
+    dataset_type = cfg["parameters"]["dataset_type"]
     lr = cfg["optimizer"]["lr"]
+    lr_backbone = cfg["optimizer"]["lr_backbone"]
     weight_decay = cfg["optimizer"]["weight_decay"]
     
     #デバイスの設定
@@ -54,9 +62,9 @@ def main():
     
     # Datasetの作成
     train_dataset = DETRDataset(train_df["image"], train_df["annotation"], classes, 
-                                input_size, dataset_type="pascal_voc", phase="train")
+                                input_size, dataset_type=dataset_type, phase="train")
     val_dataset = DETRDataset(val_df["image"], val_df["annotation"], classes, 
-                              input_size, dataset_type="pascal_voc", phase="val")
+                              input_size, dataset_type=dataset_type, phase="val")
     
     # DataLoaderの作成
     train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True, num_workers=0,
@@ -65,15 +73,10 @@ def main():
                                 pin_memory=True, collate_fn=collate_fn)
     
     # モデルの定義
-    id2label = {str(i): class_name for i, class_name in enumerate(classes)}
-    label2id = {class_name: i for i, class_name in enumerate(classes)}
-    config = DetrConfig(id2label=id2label, label2id=label2id)
-    model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50", 
-                                                   config=config,
-                                                   ignore_mismatched_sizes=True)
+    model, params = get_model_train(model_name, classes, lr_backbone, use_pretrained)
     
     # optimizerの定義
-    optimizer = AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer = AdamW(params, lr=lr, weight_decay=weight_decay)
     
     # Trainerの定義
     trainer = Trainer(
@@ -109,12 +112,27 @@ def main():
     trainer.output_log()
     
     # 入力データの一覧をファイル出力
-    train_df.to_csv(output_path.joinpath("input_data", "train.csv"), 
-                    encoding="utf-8-sig", index=False)
-    val_df.to_csv(output_path.joinpath("input_data", "val.csv"), 
-                    encoding="utf-8-sig", index=False)
-    test_df.to_csv(output_path.joinpath("input_data", "test.csv"), 
-                    encoding="utf-8-sig", index=False)
+    data_log_path = output_path.joinpath("input_data")
+    data_log_path.mkdir(parents=True, exist_ok=True)
+    train_df.to_csv(data_log_path.joinpath("train.csv"), encoding="utf-8-sig", index=False)
+    val_df.to_csv(data_log_path.joinpath("val.csv"), encoding="utf-8-sig", index=False)
+    test_df.to_csv(data_log_path.joinpath("test.csv"), encoding="utf-8-sig", index=False)
+    
+    # 推論クラスの定義
+    test_output_path = output_path.joinpath("test")
+    test_output_path.mkdir(parents=True, exist_ok=True)
+    infer = Inference(
+        model=model,
+        threshold=0.9,
+        input_size=input_size,
+        device=device,
+        output_path=test_output_path
+    )
+    
+    # 画像を1枚ずつ推論
+    for img_path in tqdm(test_df["image"].tolist(), desc="inference"):
+        # 推論
+        infer(img_path)
 
 
 if __name__ == "__main__":

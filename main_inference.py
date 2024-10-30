@@ -1,14 +1,13 @@
 import os
 from pathlib import Path
-import json
 
 import torch
 import toml
-from transformers import DetrConfig, DetrForObjectDetection
 from tqdm import tqdm
 
 from modules.Inference import Inference
 from modules.utils import fix_seeds
+from modules.models import get_model_inference
 
 
 # 定数
@@ -47,21 +46,14 @@ def main():
     # 学習時のconfigから必要なパラメータを取得
     with open(result_path.joinpath("train_config.toml"), mode="r", encoding="utf-8") as f:
         cfg_t = toml.load(f)
+    model_name = cfg_t["model_name"]
     input_size = cfg_t["parameters"]["input_size"]
     
     # 推論する画像データのパスリストを作成
     img_path_list = input_path.glob("*")
     
     # 自作モデルを使用
-    with open(result_path.joinpath("config.json"), mode="r", encoding="utf-8") as f:
-        # モデルのconfigを読み込み
-        model_cfg = json.load(f)
-    config = DetrConfig(**model_cfg)
-    model = DetrForObjectDetection(config)
-    
-    # 学習済みモデルパラメータを読み込み
-    weight_path = list(result_path.glob("*best.pth"))[0]
-    model.load_state_dict(torch.load(weight_path, map_location=device))
+    model = get_model_inference(model_name, result_path, device)
     
     # 推論クラスの定義
     infer = Inference(

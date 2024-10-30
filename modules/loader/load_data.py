@@ -48,7 +48,7 @@ def make_pathlist_voc(
         return pd.DataFrame(input_data_dict)
     
     # 訓練用、検証用のデータをそれぞれ取得
-    data_names_path = dataset_path.joinpath("ImageSets", "Main")
+    data_names_path = dataset_path.joinpath("ImageSets")
     
     ## 訓練用
     with open(data_names_path.joinpath("train.txt"), mode="r", encoding="utf-8") as ft:

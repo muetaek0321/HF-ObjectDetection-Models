@@ -18,10 +18,10 @@ def get_transform(
     """
     if phase == "train":
         aug_list = [
-            # A.Blur(),
-            # A.GaussNoise(),
-            # A.HorizontalFlip(),
-            # A.RandomBrightnessContrast(),
+            A.Blur(blur_limit=3),
+            A.GaussNoise(var_limit=(2, 10)),
+            A.HorizontalFlip(),
+            A.RandomBrightnessContrast(),
             A.Resize(*input_size),
             A.Normalize(),
             ToTensorV2()
@@ -40,6 +40,10 @@ def get_transform(
             A.Normalize(),
             ToTensorV2()
         ]
-        
-    return A.Compose(aug_list, bbox_params=A.BboxParams(format=dataset_type, label_fields=['labels']))
     
+    # 学習時
+    if phase in ["train", "val"]:
+        return A.Compose(aug_list, bbox_params=A.BboxParams(format=dataset_type, label_fields=['labels']))
+    # 推論時
+    elif phase in ["test"]:
+        return A.Compose(aug_list)

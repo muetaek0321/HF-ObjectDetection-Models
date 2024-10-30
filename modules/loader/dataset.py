@@ -11,6 +11,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from albumentations.core.bbox_utils import normalize_bboxes
+from transformers.image_transforms import corners_to_center_format
 
 from .augmentation import get_transform
 from modules.utils import imread_jpn
@@ -66,9 +67,6 @@ class AnnoXmlToList(object):
             # VOCは原点が(1,1)なので1を引き算して（0, 0）に
             pts = ['xmin', 'ymin', 'xmax', 'ymax']
             bndbox = [int(bbox.find(pt).text)-1 for pt in pts]
-                
-            # coco形式（[xmin, ymin, width, heigth]）に変換して格納
-            bndbox = bndbox[:2] + [bndbox[2]-bndbox[0], bndbox[3]-bndbox[1]]
             bbox_datas.append(bndbox)
 
             # アノテーションのクラス名のindexを取得して追加
@@ -111,7 +109,7 @@ class DETRDataset(Dataset):
             self.load_anno = AnnoXmlToList(classes)
         
         # DataAugmentationの準備
-        self.transform = get_transform("coco", self.input_size, self.phase)
+        self.transform = get_transform(self.dataset_type, self.input_size, self.phase)
         
     def __len__(
         self
@@ -149,9 +147,10 @@ class DETRDataset(Dataset):
         img_trans = transformed['image']
         bboxes_trans = transformed['bboxes']
         labels_trans = transformed['labels']
-        
+                
         # BBoxを正規化
         h, w = self.input_size
+        bboxes_trans = corners_to_center_format(np.array(bboxes_trans))
         boxes_norm = normalize_bboxes(bboxes_trans, rows=h, cols=w)
         
         # モデルの入力形式に変換  

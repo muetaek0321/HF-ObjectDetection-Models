@@ -6,9 +6,14 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from transformers import DetrForObjectDetection
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
+
+
+# エラー対処
+matplotlib.use('Agg') 
 
 
 class Trainer:
@@ -108,7 +113,7 @@ class Trainer:
         """        
         # 最終epochのモデル
         epoch = self.log["epoch"][-1]
-        model_name = f"DETR_{epoch}.pth"
+        model_name = f"DETR_{epoch}_latest.pth"
         torch.save(self.model.state_dict(), self.output_path.joinpath(model_name))
         print(f"model saved: {model_name}")
         
