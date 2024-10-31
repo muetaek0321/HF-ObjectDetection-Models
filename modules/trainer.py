@@ -113,12 +113,12 @@ class Trainer:
         """        
         # 最終epochのモデル
         epoch = self.log["epoch"][-1]
-        model_name = f"DETR_{epoch}_latest.pth"
+        model_name = f"{epoch}_latest.pth"
         torch.save(self.model.state_dict(), self.output_path.joinpath(model_name))
         print(f"model saved: {model_name}")
         
         # 最良のepochのモデル
-        best_model_name = f"DETR_{self.best_epoch}_best.pth"
+        best_model_name = f"{self.best_epoch}_best.pth"
         torch.save(self.best_model.state_dict(), self.output_path.joinpath(best_model_name))
         print(f"best model saved: {best_model_name} (best loss: {self.best_loss})")
         

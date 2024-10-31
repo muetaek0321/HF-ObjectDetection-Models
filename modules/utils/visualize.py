@@ -22,7 +22,7 @@ def visualize_bbox(
     img: np.ndarray,
     bboxes: np.ndarray | list[list[int]],
     labels: np.ndarray | list[int],
-    dataset_type: str = "coco",
+    bbox_type: str = "xywh",
     output_path: str | Path = "image_vis.png",
     save: bool= True
 ) -> np.ndarray:
@@ -36,10 +36,10 @@ def visualize_bbox(
     
     # BBoxを可視化
     for bbox, label in zip(bboxes, labels):
-        if dataset_type == "coco":
+        if bbox_type == "xywh":
             pt1 = (int(bbox[0]), int(bbox[1]))
             pt2 = (int(bbox[0]+bbox[2]), int(bbox[1]+bbox[3]))
-        elif dataset_type == "voc":
+        elif bbox_type == "xyxy":
             pt1 = (int(bbox[0]), int(bbox[1]))
             pt2 = (int(bbox[2]), int(bbox[3]))
         img_vis = cv2.rectangle(img_vis, pt1, pt2, COLORS[label])

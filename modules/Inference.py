@@ -75,5 +75,5 @@ class Inference:
         labels = pred_labels[vis_idx]
         bboxes = denormalize_bboxes(pred_bboxes[vis_idx], rows=h, cols=w)
         
-        visualize_bbox(img, bboxes, labels, "voc", self.output_path.joinpath(img_path.name))
+        visualize_bbox(img, bboxes, labels, "xyxy", self.output_path.joinpath(img_path.name))
     
