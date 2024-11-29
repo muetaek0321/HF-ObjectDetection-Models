@@ -5,6 +5,8 @@ import torch
 from transformers.modeling_utils import PreTrainedModel
 from transformers import DetrConfig, DetrForObjectDetection
 from transformers import DeformableDetrConfig, DeformableDetrForObjectDetection
+from transformers import DetaConfig, DetaForObjectDetection
+from transformers import ConditionalDetrConfig, ConditionalDetrForObjectDetection
 
 
 def get_model_train(
@@ -19,6 +21,10 @@ def get_model_train(
         return detr(classes, lr_backbone, use_pretrained)
     elif model_name == "Deformable-DETR":
         return deformable_detr(classes, lr_backbone, use_pretrained)
+    elif model_name == "DETA":
+        return deta(classes, lr_backbone, use_pretrained)
+    elif model_name == "ConditionalDETR":
+        return conditional_detr(classes, lr_backbone, use_pretrained)
 
 
 def detr(
@@ -78,6 +84,64 @@ def deformable_detr(
         
     return model, params
 
+
+def deta(
+    classes: list[str],
+    lr_backbone: float,
+    use_pretrained: bool
+) -> tuple[PreTrainedModel, list]:
+    """DETAモデルを準備
+    """
+    id2label = {str(i): class_name for i, class_name in enumerate(classes+["NONE"])}
+    label2id = {class_name: i for i, class_name in enumerate(classes+["NONE"])}
+    if use_pretrained:
+        model = DetaForObjectDetection.from_pretrained(
+            "jozhang97/deta-resnet-50",
+            ignore_mismatched_sizes=True,
+            id2label=id2label, 
+            label2id=label2id
+        )
+        params = [
+            {"params": [p for n, p in model.named_parameters() if "backbone" not in n and p.requires_grad]},
+            {"params": [p for n, p in model.named_parameters() if "backbone" in n and p.requires_grad],
+             "lr": lr_backbone},
+        ]
+    else:
+        config = DetaConfig(id2label=id2label, label2id=label2id)
+        model = DetaForObjectDetection(config)
+        params = model.parameters()
+        
+    return model, params
+
+
+def conditional_detr(
+    classes: list[str],
+    lr_backbone: float,
+    use_pretrained: bool
+) -> tuple[PreTrainedModel, list]:
+    """Conditional DETRモデルを準備
+    """
+    id2label = {str(i): class_name for i, class_name in enumerate(classes+["NONE"])}
+    label2id = {class_name: i for i, class_name in enumerate(classes+["NONE"])}
+    if use_pretrained:
+        model = ConditionalDetrForObjectDetection.from_pretrained(
+            "microsoft/conditional-detr-resnet-50",
+            ignore_mismatched_sizes=True,
+            id2label=id2label, 
+            label2id=label2id
+        )
+        params = [
+            {"params": [p for n, p in model.named_parameters() if "backbone" not in n and p.requires_grad]},
+            {"params": [p for n, p in model.named_parameters() if "backbone" in n and p.requires_grad],
+             "lr": lr_backbone},
+        ]
+    else:
+        config = ConditionalDetrConfig(id2label=id2label, label2id=label2id)
+        model = ConditionalDetrForObjectDetection(config)
+        params = model.parameters()
+        
+    return model, params
+    
 
 def get_model_inference(
     model_name: str,

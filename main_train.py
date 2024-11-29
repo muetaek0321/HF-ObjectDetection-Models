@@ -13,7 +13,7 @@ from modules.models import get_model_train
 from modules.trainer import Trainer
 from modules.Inference import Inference
 from modules.custom_collate_fn import collate_fn
-from modules.utils import fix_seeds, now_date_str
+from modules.utils import fix_seeds, now_date_str, ProcessTimeManager
 from modules.loader import make_pathlist_voc, DETRDataset
 
 
@@ -57,7 +57,7 @@ def main():
     print(f"使用デバイス {device}")
     
     # データのパスリストを作成
-    train_df, val_df, test_df = make_pathlist_voc(input_path, is_split=True)
+    train_df, val_df, test_df = make_pathlist_voc(input_path, is_split=True, test_data_ratio=1/6)
     print(f"データ分割 train:val = {len(train_df)}:{len(val_df)}")
     
     # Datasetの作成
@@ -136,4 +136,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    with ProcessTimeManager(is_print=True) as pt:
+        main()
+    

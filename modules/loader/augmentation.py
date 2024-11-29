@@ -22,6 +22,7 @@ def get_transform(
             A.GaussNoise(var_limit=(2, 10)),
             A.HorizontalFlip(),
             A.RandomBrightnessContrast(),
+            A.BBoxSafeRandomCrop(p=0.5),
             A.Resize(*input_size),
             A.Normalize(),
             ToTensorV2()

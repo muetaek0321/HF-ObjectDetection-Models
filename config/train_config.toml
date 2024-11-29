@@ -1,21 +1,18 @@
-input_path = "../_dataset/VOC2012/"
+input_path = "../_dataset/face_voc"
 output_path = "./results"
 gpu = 0
 use_pretrained = true
 
 # 使用するモデルの名前
 #model_name = "DETR"
-model_name = "Deformable-DETR"
+#model_name = "Deformable-DETR"
+#model_name = "DETA"
+model_name = "ConditionalDETR"
 
 [parameters]
 num_epoches = 100
-batch_size = 16
-classes = [
-    "person", "bird", "cat", "cow", "dog", "horse", "sheep", 
-    "aeroplane", "bicycle", "boat", "bus", "car", "motorbike", 
-    "train", "bottle", "chair", "diningtable", 
-    "pottedplant", "sofa", "tvmonitor"
-]
+batch_size = 8
+classes = ["face"]
 
 # 入力画像サイズ: (height, width)
 input_size = [512, 512]

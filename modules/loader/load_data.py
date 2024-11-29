@@ -62,7 +62,7 @@ def make_pathlist_voc(
         
     # 検証用の一部をテスト用に回す
     if is_split:
-        split = int(len(val_df)*test_data_ratio)
+        split = int(len(val_df) * (1 - test_data_ratio))
         val_df_sp = val_df.iloc[:split, :]
         test_df = val_df.iloc[split:, :]
         
