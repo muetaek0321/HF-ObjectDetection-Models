@@ -10,6 +10,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
+from schedulefree import RAdamScheduleFree
 
 
 # エラー対処
@@ -22,7 +23,7 @@ class Trainer:
     def __init__(
         self,
         model: DetrForObjectDetection,
-        optimizer: Optimizer,
+        optimizer: Optimizer | RAdamScheduleFree,
         train_dataloader: DataLoader,
         val_dataloader: DataLoader,
         device: torch.device | str,
@@ -53,16 +54,18 @@ class Trainer:
         """訓練のループを実行
         """
         self.model.train()
+        self.optimizer.train()
         iter_train_loss = []
         
         for batch in tqdm(self.train_dataloader, desc="train"):
             pixel_values = batch["pixel_values"].to(self.device)
             labels = [{key: value.to(self.device) for key, value in targets.items()} 
                       for targets in batch["labels"]]
+            
+            self.optimizer.zero_grad()
 
             output = self.model(pixel_values=pixel_values, labels=labels)
 
-            self.optimizer.zero_grad()
             output.loss.backward()
             self.optimizer.step()
             
@@ -82,6 +85,7 @@ class Trainer:
         """検証のループを実行
         """
         self.model.eval()
+        self.optimizer.eval()
         iter_val_loss = []
         
         for batch in tqdm(self.val_dataloader, desc="val"):

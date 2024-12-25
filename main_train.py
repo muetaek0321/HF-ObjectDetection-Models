@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from torch.optim import AdamW
 import toml
 from tqdm import tqdm
+from schedulefree import RAdamScheduleFree
 
 from modules.models import get_model_train
 from modules.trainer import Trainer
@@ -57,7 +58,7 @@ def main():
     print(f"使用デバイス {device}")
     
     # データのパスリストを作成
-    train_df, val_df, test_df = make_pathlist_voc(input_path, is_split=True, test_data_ratio=1/6)
+    train_df, val_df, test_df = make_pathlist_voc(input_path, is_split=True, test_data_ratio=0.01)
     print(f"データ分割 train:val = {len(train_df)}:{len(val_df)}")
     
     # Datasetの作成
@@ -76,7 +77,8 @@ def main():
     model, params = get_model_train(model_name, classes, lr_backbone, use_pretrained)
     
     # optimizerの定義
-    optimizer = AdamW(params, lr=lr, weight_decay=weight_decay)
+    # optimizer = AdamW(params, lr=lr, weight_decay=weight_decay)
+    optimizer = RAdamScheduleFree(params, lr=lr)
     
     # Trainerの定義
     trainer = Trainer(
