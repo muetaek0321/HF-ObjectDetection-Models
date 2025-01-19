@@ -1,11 +1,10 @@
 import os
-os.environ["HF_HOME"] = "weights" # 事前学習モデルの保存先を指定
+os.environ["HF_HOME"] = "pretrained" # 事前学習モデルの保存先を指定
 from pathlib import Path
 import shutil
 
 import torch
 from torch.utils.data import DataLoader
-from torch.optim import AdamW
 import toml
 from tqdm import tqdm
 from schedulefree import RAdamScheduleFree
@@ -46,7 +45,6 @@ def main():
     dataset_type = cfg["parameters"]["dataset_type"]
     lr = cfg["optimizer"]["lr"]
     lr_backbone = cfg["optimizer"]["lr_backbone"]
-    weight_decay = cfg["optimizer"]["weight_decay"]
     
     #デバイスの設定
     gpu = cfg["gpu"]
@@ -77,7 +75,6 @@ def main():
     model, params = get_model_train(model_name, classes, lr_backbone, use_pretrained)
     
     # optimizerの定義
-    # optimizer = AdamW(params, lr=lr, weight_decay=weight_decay)
     optimizer = RAdamScheduleFree(params, lr=lr)
     
     # Trainerの定義
