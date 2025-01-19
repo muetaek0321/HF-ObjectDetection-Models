@@ -20,7 +20,7 @@ def imread_jpn(
     """
     # NumPyで画像ファイルを開く
     buf = np.fromfile(img_path, np.uint8)
-    img = cv2.imdecode(buf, cv2.IMREAD_UNCHANGED)
+    img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
 
     return img
 

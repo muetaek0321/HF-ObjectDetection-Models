@@ -151,7 +151,7 @@ class DETRDataset(Dataset):
         # BBoxを正規化
         h, w = self.input_size
         bboxes_trans = corners_to_center_format(np.array(bboxes_trans))
-        boxes_norm = normalize_bboxes(bboxes_trans, rows=h, cols=w)
+        boxes_norm = normalize_bboxes(bboxes_trans, shape=(h, w))
         
         # モデルの入力形式に変換  
         targets = {
