@@ -45,7 +45,6 @@ class Inference:
         """
         # 画像読み込み
         img = imread_jpn(img_path)
-        h, w = img.shape[:2]
         
         # 画像の前処理を適用
         pixel_values = self.transform(image=img)['image']
@@ -73,7 +72,7 @@ class Inference:
         # 閾値以上のスコアの予測のみを抽出
         vis_idx = np.where(scores > self.threshold)
         labels = pred_labels[vis_idx]
-        bboxes = denormalize_bboxes(pred_bboxes[vis_idx], rows=h, cols=w)
+        bboxes = denormalize_bboxes(pred_bboxes[vis_idx], shape=img.shape)
         
         visualize_bbox(img, bboxes, labels, "xyxy", self.output_path.joinpath(img_path.name))
     
