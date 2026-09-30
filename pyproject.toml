@@ -1,10 +1,30 @@
 [project]
-name = "{{PROJECT_NAME}}"
+name = "detr-huggingface"
 version = "0.1.0"
-description = "{{PROJECT_DESCRIPTION}}"
+description = "Hugging Faceから利用可能なDETRモデルを使用して学習・推論を行うプロジェクト"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "torch",
+    "transformers",
+    "timm",
+    "albumentations",
+    "supervision",
+    "schedulefree",
+    "matplotlib",
+    "pandas",
+    "toml"
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "torch-cu128" },
+]
+
+[[tool.uv.index]]
+name = "torch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
 
 [dependency-groups]
 dev = [
