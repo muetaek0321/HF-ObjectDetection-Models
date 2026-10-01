@@ -4,14 +4,11 @@ gpu = 0
 use_pretrained = true
 
 # 使用するモデルの名前
-model_name = "DETR"
-#model_name = "Deformable-DETR"
-#model_name = "DETA"
-#model_name = "ConditionalDETR"
+model_name = "RF-DETR"
 
 [parameters]
 num_epoches = 100
-batch_size = 32
+batch_size = 8
 classes = [
     "person", "bird", "cat", "cow", "dog", "horse", "sheep", 
     "aeroplane", "bicycle", "boat", "bus", "car", "motorbike", 

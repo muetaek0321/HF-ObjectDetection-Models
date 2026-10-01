@@ -9,6 +9,8 @@ from transformers import (
     DeformableDetrForObjectDetection,
     DetrConfig,
     DetrForObjectDetection,
+    RfDetrConfig,
+    RfDetrForObjectDetection,
 )
 from transformers.modeling_utils import PreTrainedModel
 
@@ -23,6 +25,8 @@ def get_model_train(
         return deformable_detr(classes, lr_backbone, use_pretrained)
     elif model_name == "ConditionalDETR":
         return conditional_detr(classes, lr_backbone, use_pretrained)
+    elif model_name == "RF-DETR":
+        return rf_detr(classes, lr_backbone, use_pretrained)
 
 
 def detr(
@@ -133,6 +137,42 @@ def conditional_detr(
     return model, params
 
 
+def rf_detr(
+    classes: list[str], lr_backbone: float, use_pretrained: bool
+) -> tuple[PreTrainedModel, list]:
+    """RF-DETRモデルを準備"""
+    id2label = {str(i): class_name for i, class_name in enumerate(classes + ["NONE"])}
+    label2id = {class_name: i for i, class_name in enumerate(classes + ["NONE"])}
+    if use_pretrained:
+        model = RfDetrForObjectDetection.from_pretrained(
+            "Roboflow/rf-detr-small",
+            ignore_mismatched_sizes=True,
+            id2label=id2label,
+            label2id=label2id,
+        )
+        params = [
+            {
+                "params": [
+                    p
+                    for n, p in model.named_parameters()
+                    if "backbone" not in n and p.requires_grad
+                ]
+            },
+            {
+                "params": [
+                    p for n, p in model.named_parameters() if "backbone" in n and p.requires_grad
+                ],
+                "lr": lr_backbone,
+            },
+        ]
+    else:
+        config = RfDetrConfig(id2label=id2label, label2id=label2id)
+        model = RfDetrForObjectDetection(config)
+        params = model.parameters()
+
+    return model, params
+
+
 def get_model_inference(
     model_name: str, train_result_path: str | Path, device: str | torch.device
 ) -> PreTrainedModel:
@@ -149,6 +189,9 @@ def get_model_inference(
     elif model_name == "Deformable-DETR":
         config = DeformableDetrConfig(**model_cfg)
         model = DeformableDetrForObjectDetection(config)
+    elif model_name == "RF-DETR":
+        config = RfDetrConfig(**model_cfg)
+        model = RfDetrForObjectDetection(config)
 
     # 学習済みモデルパラメータを読み込み
     weight_path = list(train_result_path.glob("*best.pth"))[0]
