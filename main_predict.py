@@ -5,10 +5,11 @@ import toml
 import torch
 from tqdm import tqdm
 
-from modules.inference import Inference
 from modules.models import get_model_inference
+from modules.predictor import Predictor
 from modules.schema import InferenceConfig, TrainConfig
-from modules.utils import fix_seeds
+from modules.utils import fix_seeds, imread_jpn
+from modules.utils.visualize import visualize_bbox
 
 # 定数
 CONFIG_PATH = "./config/inference_config.toml"
@@ -49,6 +50,7 @@ def main():
         cfg_t = TrainConfig.model_validate(toml.load(f))
     model_name = cfg_t.model_name
     input_size = cfg_t.parameters.input_size
+    classes = cfg_t.parameters.classes
 
     # 推論する画像データのパスリストを作成
     img_path_list = input_path.glob("*")
@@ -57,18 +59,20 @@ def main():
     model = get_model_inference(model_name, result_path, device)
 
     # 推論クラスの定義
-    infer = Inference(
-        model=model,
-        threshold=threshold,
-        input_size=input_size,
-        device=device,
-        output_path=output_path,
-    )
+    infer = Predictor(model=model, threshold=threshold, input_size=input_size, device=device)
 
     # 画像を1枚ずつ推論
     for img_path in tqdm(list(img_path_list), desc="inference"):
-        # 推論
-        infer(img_path)
+        # 画像読み込み
+        img = imread_jpn(img_path)
+
+        # 推論を実行
+        bboxes, labels, scores = infer(img)
+
+        # 推論結果を可視化して保存
+        visualize_bbox(
+            img, bboxes, labels, scores, classes, output_path=output_path / Path(img_path).name
+        )
 
 
 if __name__ == "__main__":

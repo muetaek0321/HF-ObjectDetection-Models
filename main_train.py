@@ -13,12 +13,13 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from modules.custom_collate_fn import collate_fn
-from modules.inference import Inference
 from modules.loader import DETRDataset, make_pathlist_voc
 from modules.models import get_model_train
+from modules.predictor import Predictor
 from modules.schema import TrainConfig
 from modules.trainer import Trainer
-from modules.utils import ProcessTimeManager, fix_seeds, now_date_str
+from modules.utils import ProcessTimeManager, fix_seeds, imread_jpn, now_date_str
+from modules.utils.visualize import visualize_bbox
 
 # 定数
 CONFIG_PATH = "./config/train_config.toml"
@@ -38,7 +39,7 @@ def main():
 
     ## 入出力パス
     input_path = Path(cfg.input_path)
-    output_path = Path(cfg.output_path).joinpath(f"{model_name}_{now_date_str()}")
+    output_path = Path(cfg.output_path) / f"{model_name}_{now_date_str()}"
     output_path.mkdir(parents=True, exist_ok=True)
 
     ## 各種パラメータ
@@ -117,7 +118,7 @@ def main():
 
     # configを保存
     shutil.copy2(CONFIG_PATH, output_path)
-    model.config.to_json_file(output_path.joinpath("config.json"))
+    model.config.to_json_file(json_file_path=output_path / "config.json")
 
     # 学習ループを実行
     for i in range(num_epoches):
@@ -139,27 +140,31 @@ def main():
     trainer.output_log()
 
     # 入力データの一覧をファイル出力
-    data_log_path = output_path.joinpath("input_data")
+    data_log_path = output_path / "input_data"
     data_log_path.mkdir(parents=True, exist_ok=True)
-    train_df.to_csv(data_log_path.joinpath("train.csv"), encoding="utf-8-sig", index=False)
-    val_df.to_csv(data_log_path.joinpath("val.csv"), encoding="utf-8-sig", index=False)
-    test_df.to_csv(data_log_path.joinpath("test.csv"), encoding="utf-8-sig", index=False)
+    train_df.to_csv(data_log_path / "train.csv", encoding="utf-8-sig", index=False)
+    val_df.to_csv(data_log_path / "val.csv", encoding="utf-8-sig", index=False)
+    test_df.to_csv(data_log_path / "test.csv", encoding="utf-8-sig", index=False)
+
+    # テスト結果の保存フォルダを作成
+    test_output_path = output_path / "test"
+    test_output_path.mkdir(parents=True, exist_ok=True)
 
     # 推論クラスの定義
-    test_output_path = output_path.joinpath("test")
-    test_output_path.mkdir(parents=True, exist_ok=True)
-    infer = Inference(
-        model=model,
-        threshold=0.9,
-        input_size=input_size,
-        device=device,
-        output_path=test_output_path,
-    )
+    infer = Predictor(model=model, threshold=0.5, input_size=input_size, device=device)
 
     # 画像を1枚ずつ推論
     for img_path in tqdm(test_df["image"].tolist(), desc="inference"):
-        # 推論
-        infer(img_path)
+        # 画像読み込み
+        img = imread_jpn(img_path)
+
+        # 推論を実行
+        bboxes, labels, scores = infer(img)
+
+        # 推論結果を可視化して保存
+        visualize_bbox(
+            img, bboxes, labels, scores, classes, output_path=test_output_path / Path(img_path).name
+        )
 
 
 if __name__ == "__main__":
