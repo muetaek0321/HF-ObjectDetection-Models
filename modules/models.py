@@ -3,8 +3,6 @@ from pathlib import Path
 
 import torch
 from transformers import (
-    ConditionalDetrConfig,
-    ConditionalDetrForObjectDetection,
     DeformableDetrConfig,
     DeformableDetrForObjectDetection,
     DetrConfig,
@@ -23,8 +21,6 @@ def get_model_train(
         return detr(classes, lr_backbone, use_pretrained)
     elif model_name == "Deformable-DETR":
         return deformable_detr(classes, lr_backbone, use_pretrained)
-    elif model_name == "ConditionalDETR":
-        return conditional_detr(classes, lr_backbone, use_pretrained)
     elif model_name == "RF-DETR":
         return rf_detr(classes, lr_backbone, use_pretrained)
 
@@ -69,8 +65,8 @@ def deformable_detr(
     classes: list[str], lr_backbone: float, use_pretrained: bool
 ) -> tuple[PreTrainedModel, list]:
     """Deformable-DETRモデルを準備"""
-    id2label = {str(i): class_name for i, class_name in enumerate(classes + ["NONE"])}
-    label2id = {class_name: i for i, class_name in enumerate(classes + ["NONE"])}
+    id2label = {str(i): class_name for i, class_name in enumerate(classes)}
+    label2id = {class_name: i for i, class_name in enumerate(classes)}
     if use_pretrained:
         model = DeformableDetrForObjectDetection.from_pretrained(
             "SenseTime/deformable-detr",
@@ -101,48 +97,12 @@ def deformable_detr(
     return model, params
 
 
-def conditional_detr(
-    classes: list[str], lr_backbone: float, use_pretrained: bool
-) -> tuple[PreTrainedModel, list]:
-    """Conditional DETRモデルを準備"""
-    id2label = {str(i): class_name for i, class_name in enumerate(classes + ["NONE"])}
-    label2id = {class_name: i for i, class_name in enumerate(classes + ["NONE"])}
-    if use_pretrained:
-        model = ConditionalDetrForObjectDetection.from_pretrained(
-            "microsoft/conditional-detr-resnet-50",
-            ignore_mismatched_sizes=True,
-            id2label=id2label,
-            label2id=label2id,
-        )
-        params = [
-            {
-                "params": [
-                    p
-                    for n, p in model.named_parameters()
-                    if "backbone" not in n and p.requires_grad
-                ]
-            },
-            {
-                "params": [
-                    p for n, p in model.named_parameters() if "backbone" in n and p.requires_grad
-                ],
-                "lr": lr_backbone,
-            },
-        ]
-    else:
-        config = ConditionalDetrConfig(id2label=id2label, label2id=label2id)
-        model = ConditionalDetrForObjectDetection(config)
-        params = model.parameters()
-
-    return model, params
-
-
 def rf_detr(
     classes: list[str], lr_backbone: float, use_pretrained: bool
 ) -> tuple[PreTrainedModel, list]:
     """RF-DETRモデルを準備"""
-    id2label = {str(i): class_name for i, class_name in enumerate(classes + ["NONE"])}
-    label2id = {class_name: i for i, class_name in enumerate(classes + ["NONE"])}
+    id2label = {str(i): class_name for i, class_name in enumerate(classes)}
+    label2id = {class_name: i for i, class_name in enumerate(classes)}
     if use_pretrained:
         model = RfDetrForObjectDetection.from_pretrained(
             "Roboflow/rf-detr-small",
@@ -194,7 +154,7 @@ def get_model_inference(
         model = RfDetrForObjectDetection(config)
 
     # 学習済みモデルパラメータを読み込み
-    weight_path = list(train_result_path.glob("*best.pth"))[0]
+    weight_path = next(train_result_path.glob("*best.pth"))
     model.load_state_dict(torch.load(weight_path, map_location=device))
 
     return model
