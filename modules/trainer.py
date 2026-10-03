@@ -5,12 +5,17 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import supervision as sv
 import torch
 from schedulefree import RAdamScheduleFree
+from supervision.metrics import MeanAveragePrecision
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from transformers.image_transforms import center_to_corners_format
 from transformers.modeling_utils import PreTrainedModel
+
+from modules.schema import ModelType
 
 # エラー対処
 matplotlib.use("Agg")
@@ -26,14 +31,26 @@ class Trainer:
         train_dataloader: DataLoader,
         val_dataloader: DataLoader,
         device: torch.device | str,
+        model_name: ModelType,
         output_path: str | Path,
     ) -> None:
-        """コンストラクタ"""
+        """初期化
+
+        Args:
+            model (PreTrainedModel): 訓練するモデル
+            optimizer (Optimizer | RAdamScheduleFree): 最適化手法
+            train_dataloader (DataLoader): 訓練データのDataLoader
+            val_dataloader (DataLoader): 検証データのDataLoader
+            device (torch.device | str): 使用するデバイス
+            model_name (ModelType): モデル名
+            output_path (str | Path): 出力先のパス
+        """
         self.model = model
         self.optimizer = optimizer
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
         self.device = device
+        self.model_name = model_name
         self.output_path = Path(output_path)
 
         # 学習の準備
@@ -43,10 +60,24 @@ class Trainer:
         self.best_loss = np.inf
 
         # ログ保存の準備
-        self.log = {"epoch": [], "train_loss": [], "val_loss": []}
+        self.log = {
+            "epoch": [],
+            "train_loss": [],
+            "val_loss": [],
+            "val_map50": [],
+            "val_map75": [],
+            "val_map50_95": [],
+        }
 
     def train(self, epoch: int) -> float:
-        """訓練のループを実行"""
+        """訓練のループを実行
+
+        Args:
+            epoch (int): 現在のエポック数
+
+        Returns:
+            float: 訓練の平均loss
+        """
         self.model.train()
         self.optimizer.train()
         iter_train_loss = []
@@ -74,11 +105,19 @@ class Trainer:
 
         return epoch_train_loss
 
-    def validation(self, epoch: int) -> float:
-        """検証のループを実行"""
+    def validation(self, epoch: int) -> tuple[float, float, float, float]:
+        """検証のループを実行
+
+        Args:
+            epoch (int): 現在のエポック数
+
+        Returns:
+            tuple[float, float, float, float]: 検証の平均loss、mAP@0.5、mAP@0.75、mAP@0.5:0.95
+        """
         self.model.eval()
         self.optimizer.eval()
         iter_val_loss = []
+        map_metric = MeanAveragePrecision()
 
         for batch in tqdm(self.val_dataloader, desc="val"):
             pixel_values = batch["pixel_values"].to(self.device)
@@ -91,10 +130,17 @@ class Trainer:
                 output = self.model(pixel_values=pixel_values, labels=labels)
 
             iter_val_loss.append(output.loss.item())
+            self._update_map_metric(
+                map_metric, output.logits, output.pred_boxes, pixel_values, labels
+            )
 
         # 1epochの平均lossを計算
         epoch_val_loss = np.mean(iter_val_loss)
+        map_result = map_metric.compute()
         self.log["val_loss"].append(epoch_val_loss)
+        self.log["val_map50"].append(map_result.map50)
+        self.log["val_map75"].append(map_result.map75)
+        self.log["val_map50_95"].append(map_result.map50_95)
 
         # 最良のLossを判定
         if self.best_loss > epoch_val_loss:
@@ -102,7 +148,53 @@ class Trainer:
             self.best_epoch = epoch
             self.best_loss = epoch_val_loss
 
-        return epoch_val_loss
+        return epoch_val_loss, map_result.map50, map_result.map75, map_result.map50_95
+
+    def _update_map_metric(
+        self,
+        map_metric: MeanAveragePrecision,
+        logits: torch.Tensor,
+        pred_boxes: torch.Tensor,
+        pixel_values: torch.Tensor,
+        labels: list[dict[str, torch.Tensor]],
+    ) -> None:
+        """検証バッチごとの検出結果をmAP指標に追加
+
+        Args:
+            map_metric (MeanAveragePrecision): mAP指標のインスタンス
+            logits (torch.Tensor): モデルの出力ロジット
+            pred_boxes (torch.Tensor): モデルの出力予測ボックス
+            pixel_values (torch.Tensor): 入力画像
+            labels (list[dict[str, torch.Tensor]]): 正解ラベルのリスト
+        """
+        height, width = pixel_values.shape[-2:]
+        scale = pred_boxes.new_tensor([width, height, width, height])
+        pred_boxes = center_to_corners_format(pred_boxes) * scale
+
+        if self.model_name == "detr":
+            probabilities = logits.softmax(dim=-1)[..., :-1]
+        else:
+            probabilities = logits.sigmoid()
+        scores, pred_class_ids = probabilities.max(dim=-1)
+
+        predictions = [
+            sv.Detections(
+                xyxy=pred_boxes[index].detach().cpu().numpy(),
+                confidence=scores[index].detach().cpu().numpy(),
+                class_id=pred_class_ids[index].detach().cpu().numpy(),
+            )
+            for index in range(pixel_values.shape[0])
+        ]
+        targets = [
+            sv.Detections(
+                xyxy=(center_to_corners_format(target["boxes"]) * scale).detach().cpu().numpy(),
+                class_id=target["class_labels"].detach().cpu().numpy(),
+            )
+            for target in labels
+        ]
+
+        # mAP指標を更新
+        map_metric.update(predictions=predictions, targets=targets)
 
     def save_weight(self) -> None:
         """モデルの重みを保存"""
@@ -121,22 +213,29 @@ class Trainer:
         """学習曲線の出力"""
         epoch = len(self.log["epoch"])  # 現在までのエポック数を取得
 
-        fig = plt.figure()
-        ax = fig.add_subplot(title=f"Loss (Epoch:{epoch})")
-        ax.plot(self.log["epoch"], self.log["train_loss"], c="red", label="train")
-        ax.plot(self.log["epoch"], self.log["val_loss"], c="blue", label="val")
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Loss")
-        ax.legend()
+        fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+        fig.suptitle(f"Learning Curve (Epoch: {epoch})")
+        ax[0].set_title("Loss")
+        ax[0].plot(self.log["epoch"], self.log["train_loss"], c="red", label="train")
+        ax[0].plot(self.log["epoch"], self.log["val_loss"], c="blue", label="val")
+        ax[0].set_xlabel("Epoch")
+        ax[0].set_ylabel("Loss")
+        ax[0].legend()
+
+        ax[1].set_title("mAP")
+        ax[1].plot(self.log["epoch"], self.log["val_map50"], label="mAP@50")
+        ax[1].plot(self.log["epoch"], self.log["val_map75"], label="mAP@75")
+        ax[1].plot(self.log["epoch"], self.log["val_map50_95"], label="mAP@50:95")
+        ax[0].set_xlabel("Epoch")
+        ax[0].set_ylabel("mAP")
+        ax[0].legend()
 
         plt.tight_layout()
-        plt.savefig(self.output_path.joinpath("loss_curve.png"))
+        plt.savefig(self.output_path.joinpath("learning_curve.png"))
 
         plt.close()
 
-    def output_log(
-        self,
-    ) -> None:
+    def output_log(self) -> None:
         """ログファイルの出力"""
         # DataFrameに変換してcsvで出力
         log_df = pd.DataFrame(self.log)

@@ -113,6 +113,7 @@ def main():
         train_dataloader=train_dataloader,
         val_dataloader=val_dataloader,
         device=device,
+        model_name=model_name,
         output_path=output_path,
     )
 
@@ -127,10 +128,14 @@ def main():
         # 訓練
         train_loss = trainer.train(epoch)
         # 検証
-        val_loss = trainer.validation(epoch)
+        val_loss, val_map50, val_map75, val_map50_95 = trainer.validation(epoch)
 
         # ログの標準出力
-        print(f"Epoch:{epoch}  train_loss:{train_loss:.4f}  val_loss:{val_loss:.4f}")
+        print(
+            f"Epoch:{epoch}\n"
+            f"  train_loss:{train_loss:.4f}  val_loss:{val_loss:.4f}\n"
+            f"  val_map50:{val_map50:.4f}  val_map75:{val_map75:.4f}  val_map50_95:{val_map50_95:.4f}"
+        )
 
         # 学習の進捗を出力
         trainer.output_learning_curve()
