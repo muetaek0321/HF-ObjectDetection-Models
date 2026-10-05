@@ -57,7 +57,7 @@ class Trainer:
         self.model.to(device)
         self.best_model = None
         self.best_epoch = 0
-        self.best_loss = np.inf
+        self.best_score = 0.0
 
         # ログ保存の準備
         self.log = {
@@ -112,7 +112,7 @@ class Trainer:
             epoch (int): 現在のエポック数
 
         Returns:
-            tuple[float, float, float, float]: 検証の平均loss、mAP@0.5、mAP@0.75、mAP@0.5:0.95
+            tuple[float, float, float, float]: 検証の平均loss、mAP@50、mAP@75、mAP@50:95
         """
         self.model.eval()
         self.optimizer.eval()
@@ -143,10 +143,10 @@ class Trainer:
         self.log["val_map50_95"].append(map_result.map50_95)
 
         # 最良のLossを判定
-        if self.best_loss > epoch_val_loss:
+        if self.best_score < map_result.map50:
             self.best_model = deepcopy(self.model)
             self.best_epoch = epoch
-            self.best_loss = epoch_val_loss
+            self.best_score = map_result.map50
 
         return epoch_val_loss, map_result.map50, map_result.map75, map_result.map50_95
 
@@ -207,7 +207,7 @@ class Trainer:
         # 最良のepochのモデル
         best_model_name = f"{self.best_epoch}_best.pth"
         torch.save(self.best_model.state_dict(), self.output_path.joinpath(best_model_name))
-        print(f"best model saved: {best_model_name} (best loss: {self.best_loss})")
+        print(f"best model saved: {best_model_name} (best score: {self.best_score:.4f})")
 
     def output_learning_curve(self) -> None:
         """学習曲線の出力"""
@@ -226,9 +226,9 @@ class Trainer:
         ax[1].plot(self.log["epoch"], self.log["val_map50"], label="mAP@50")
         ax[1].plot(self.log["epoch"], self.log["val_map75"], label="mAP@75")
         ax[1].plot(self.log["epoch"], self.log["val_map50_95"], label="mAP@50:95")
-        ax[0].set_xlabel("Epoch")
-        ax[0].set_ylabel("mAP")
-        ax[0].legend()
+        ax[1].set_xlabel("Epoch")
+        ax[1].set_ylabel("mAP")
+        ax[1].legend()
 
         plt.tight_layout()
         plt.savefig(self.output_path.joinpath("learning_curve.png"))
