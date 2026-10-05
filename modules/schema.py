@@ -43,6 +43,7 @@ class TrainParameters(BaseModel):
         min_length=2, max_length=2, description="入力画像サイズ [height, width]"
     )
     dataset_type: DatasetType = Field(description="データセット形式")
+    patience: int = Field(gt=0, description="Early Stoppingの更新無しエポック数")
 
     @field_validator("input_size")
     @classmethod

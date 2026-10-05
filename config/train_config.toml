@@ -7,7 +7,7 @@ use_pretrained = true
 model_name = "RF-DETR"
 
 [parameters]
-num_epoches = 100
+num_epoches = 1000
 batch_size = 8
 classes = ["face"]
 
@@ -16,6 +16,9 @@ input_size = [512, 512]
 
 # データセットの形式（"coco" or "pascal_voc"）
 dataset_type = "pascal_voc"
+
+# Early Stoppingの更新無しエポック数
+patience = 50
 
 [optimizer]
 lr = 1e-4
