@@ -9,6 +9,8 @@ from transformers import (
     DetrForObjectDetection,
     RfDetrConfig,
     RfDetrForObjectDetection,
+    RTDetrV2Config,
+    RTDetrV2ForObjectDetection,
 )
 from transformers.modeling_utils import PreTrainedModel
 
@@ -23,6 +25,8 @@ def get_model_train(
         return deformable_detr(classes, lr_backbone, use_pretrained)
     elif model_name == "RF-DETR":
         return rf_detr(classes, lr_backbone, use_pretrained)
+    elif model_name == "RT-DETR":
+        return rt_detr(classes, lr_backbone, use_pretrained)
 
 
 def detr(
@@ -133,6 +137,42 @@ def rf_detr(
     return model, params
 
 
+def rt_detr(
+    classes: list[str], lr_backbone: float, use_pretrained: bool
+) -> tuple[PreTrainedModel, list]:
+    """RT-DETRモデルを準備"""
+    id2label = {str(i): class_name for i, class_name in enumerate(classes)}
+    label2id = {class_name: i for i, class_name in enumerate(classes)}
+    if use_pretrained:
+        model = RTDetrV2ForObjectDetection.from_pretrained(
+            "PekingU/rtdetr_v2_r50vd",
+            ignore_mismatched_sizes=True,
+            id2label=id2label,
+            label2id=label2id,
+        )
+        params = [
+            {
+                "params": [
+                    p
+                    for n, p in model.named_parameters()
+                    if "backbone" not in n and p.requires_grad
+                ]
+            },
+            {
+                "params": [
+                    p for n, p in model.named_parameters() if "backbone" in n and p.requires_grad
+                ],
+                "lr": lr_backbone,
+            },
+        ]
+    else:
+        config = RTDetrV2Config(id2label=id2label, label2id=label2id)
+        model = RTDetrV2ForObjectDetection(config)
+        params = model.parameters()
+
+    return model, params
+
+
 def get_model_inference(
     model_name: str, train_result_path: str | Path, device: str | torch.device
 ) -> PreTrainedModel:
@@ -152,6 +192,9 @@ def get_model_inference(
     elif model_name == "RF-DETR":
         config = RfDetrConfig(**model_cfg)
         model = RfDetrForObjectDetection(config)
+    elif model_name == "RT-DETR":
+        config = RTDetrV2Config(**model_cfg)
+        model = RTDetrV2ForObjectDetection(config)
 
     # 学習済みモデルパラメータを読み込み
     weight_path = next(train_result_path.glob("*best.pth"))

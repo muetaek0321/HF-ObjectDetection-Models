@@ -14,8 +14,8 @@ class ModelType(StrEnum):
 
     DETR = "DETR"
     DEFORMABLE_DETR = "Deformable-DETR"
-    CONDITIONAL_DETR = "ConditionalDETR"
     RF_DETR = "RF-DETR"
+    RT_DETR = "RT-DETR"
 
 
 class DatasetType(StrEnum):
