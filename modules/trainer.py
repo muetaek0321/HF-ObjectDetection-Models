@@ -1,4 +1,5 @@
 from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib
@@ -21,6 +22,17 @@ from modules.schema import ModelType
 matplotlib.use("Agg")
 
 
+@dataclass(frozen=True)
+class ValidationResult:
+    """検証結果を格納するデータクラス。"""
+
+    val_loss: float
+    map50: float
+    map75: float
+    map50_95: float
+    is_early_stopping: bool
+
+
 class Trainer:
     """訓練を実行するクラス"""
 
@@ -30,6 +42,7 @@ class Trainer:
         optimizer: Optimizer | RAdamScheduleFree,
         train_dataloader: DataLoader,
         val_dataloader: DataLoader,
+        patience: int,
         device: torch.device | str,
         model_name: ModelType,
         output_path: str | Path,
@@ -41,6 +54,7 @@ class Trainer:
             optimizer (Optimizer | RAdamScheduleFree): 最適化手法
             train_dataloader (DataLoader): 訓練データのDataLoader
             val_dataloader (DataLoader): 検証データのDataLoader
+            patience (int): Early Stoppingの更新無しエポック数
             device (torch.device | str): 使用するデバイス
             model_name (ModelType): モデル名
             output_path (str | Path): 出力先のパス
@@ -49,6 +63,7 @@ class Trainer:
         self.optimizer = optimizer
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
+        self.patience = patience
         self.device = device
         self.model_name = model_name
         self.output_path = Path(output_path)
@@ -105,19 +120,20 @@ class Trainer:
 
         return epoch_train_loss
 
-    def validation(self, epoch: int) -> tuple[float, float, float, float]:
+    def validation(self, epoch: int) -> ValidationResult:
         """検証のループを実行
 
         Args:
             epoch (int): 現在のエポック数
 
         Returns:
-            tuple[float, float, float, float]: 検証の平均loss、mAP@50、mAP@75、mAP@50:95
+            ValidationResult: 検証の実行結果
         """
         self.model.eval()
         self.optimizer.eval()
         iter_val_loss = []
         map_metric = MeanAveragePrecision()
+        is_early_stopping = False
 
         for batch in tqdm(self.val_dataloader, desc="val"):
             pixel_values = batch["pixel_values"].to(self.device)
@@ -136,19 +152,31 @@ class Trainer:
 
         # 1epochの平均lossを計算
         epoch_val_loss = np.mean(iter_val_loss)
-        map_result = map_metric.compute()
         self.log["val_loss"].append(epoch_val_loss)
+
+        # mAP指標を計算
+        map_result = map_metric.compute()
         self.log["val_map50"].append(map_result.map50)
         self.log["val_map75"].append(map_result.map75)
         self.log["val_map50_95"].append(map_result.map50_95)
 
-        # 最良のLossを判定
+        # 最良のScoreを判定
         if self.best_score < map_result.map50:
             self.best_model = deepcopy(self.model)
             self.best_epoch = epoch
             self.best_score = map_result.map50
+        else:
+            # EarlyStoppingの判定
+            if epoch - self.best_epoch >= self.patience:
+                is_early_stopping = True
 
-        return epoch_val_loss, map_result.map50, map_result.map75, map_result.map50_95
+        return ValidationResult(
+            val_loss=epoch_val_loss,
+            map50=map_result.map50,
+            map75=map_result.map75,
+            map50_95=map_result.map50_95,
+            is_early_stopping=is_early_stopping,
+        )
 
     def _update_map_metric(
         self,

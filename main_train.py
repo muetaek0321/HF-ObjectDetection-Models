@@ -48,6 +48,7 @@ def main():
     classes = cfg.parameters.classes
     input_size = cfg.parameters.input_size
     dataset_type = cfg.parameters.dataset_type
+    patience = cfg.parameters.patience
     lr = cfg.optimizer.lr
     lr_backbone = cfg.optimizer.lr_backbone
 
@@ -112,6 +113,7 @@ def main():
         optimizer=optimizer,
         train_dataloader=train_dataloader,
         val_dataloader=val_dataloader,
+        patience=patience,
         device=device,
         model_name=model_name,
         output_path=output_path,
@@ -122,23 +124,25 @@ def main():
     model.config.to_json_file(json_file_path=output_path / "config.json")
 
     # 学習ループを実行
-    for i in range(num_epoches):
-        epoch = i + 1
-
+    for epoch in range(1, num_epoches + 1):
         # 訓練
         train_loss = trainer.train(epoch)
         # 検証
-        val_loss, val_map50, val_map75, val_map50_95 = trainer.validation(epoch)
+        val_result = trainer.validation(epoch)
 
         # ログの標準出力
         print(
             f"Epoch:{epoch}\n"
-            f"  train_loss:{train_loss:.4f}  val_loss:{val_loss:.4f}\n"
-            f"  val_map50:{val_map50:.4f}  val_map75:{val_map75:.4f}  val_map50_95:{val_map50_95:.4f}"
+            f"  train_loss:{train_loss:.4f}  val_loss:{val_result.val_loss:.4f}\n"
+            f"  val_map50:{val_result.map50:.4f}  val_map75:{val_result.map75:.4f}  val_map50_95:{val_result.map50_95:.4f}"
         )
 
         # 学習の進捗を出力
         trainer.output_learning_curve()
+
+        if val_result.is_early_stopping:
+            print("EarlyStoppingで学習を終了します。")
+            break
 
     # モデルとログの出力
     trainer.save_weight()
