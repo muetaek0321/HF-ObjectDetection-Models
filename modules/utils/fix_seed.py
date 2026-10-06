@@ -4,14 +4,9 @@ import numpy as np
 import torch
 
 
-__all__ = ["fix_seeds"]
-
-
-def fix_seeds(
-    seed: int = 0
-) -> None:
+def fix_seeds(seed: int = 0) -> None:
     """使用する可能性のあるライブラリの乱数を固定
-    
+
     Args:
         seed (int): 乱数のSEED値
     """

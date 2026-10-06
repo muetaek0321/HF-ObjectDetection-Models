@@ -18,11 +18,14 @@ from modules.models import get_model_train
 from modules.predictor import Predictor
 from modules.schema import TrainConfig
 from modules.trainer import Trainer
-from modules.utils import ProcessTimeManager, fix_seeds, imread_jpn, now_date_str
+from modules.utils import ProcessTimeManager, fix_seeds, get_logger, imread_jpn, now_date_str
 from modules.utils.visualize import visualize_bbox
 
 # 定数
 CONFIG_PATH = "./config/train_config.toml"
+
+# ロガーの取得
+logger = get_logger(__name__)
 
 
 def main():
@@ -59,11 +62,11 @@ def main():
         os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
     else:
         device = torch.device("cpu")
-    print(f"使用デバイス {device}")
+    logger.info(f"使用デバイス {device}")
 
     # データのパスリストを作成
     train_df, val_df, test_df = make_pathlist_voc(input_path, is_split=True, test_data_ratio=0.01)
-    print(f"データ分割 train:val = {len(train_df)}:{len(val_df)}")
+    logger.info(f"データ分割 train:val = {len(train_df)}:{len(val_df)}")
 
     # Datasetの作成
     train_dataset = DETRDataset(
@@ -131,7 +134,7 @@ def main():
         val_result = trainer.validation(epoch)
 
         # ログの標準出力
-        print(
+        logger.info(
             f"Epoch:{epoch}\n"
             f"  train_loss:{train_loss:.4f}  val_loss:{val_result.val_loss:.4f}\n"
             f"  val_map50:{val_result.map50:.4f}  val_map75:{val_result.map75:.4f}  val_map50_95:{val_result.map50_95:.4f}"
@@ -141,7 +144,7 @@ def main():
         trainer.output_learning_curve()
 
         if val_result.is_early_stopping:
-            print("EarlyStoppingで学習を終了します。")
+            logger.info("EarlyStoppingで学習を終了します。")
             break
 
     # モデルとログの出力
@@ -177,5 +180,5 @@ def main():
 
 
 if __name__ == "__main__":
-    with ProcessTimeManager(is_print=True) as pt:
+    with ProcessTimeManager(is_print=True, logger=logger) as pt:
         main()

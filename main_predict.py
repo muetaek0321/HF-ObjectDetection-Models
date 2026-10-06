@@ -8,11 +8,13 @@ from tqdm import tqdm
 from modules.models import get_model_inference
 from modules.predictor import Predictor
 from modules.schema import InferenceConfig, TrainConfig
-from modules.utils import fix_seeds, imread_jpn
-from modules.utils.visualize import visualize_bbox
+from modules.utils import fix_seeds, get_logger, imread_jpn, visualize_bbox
 
 # 定数
 CONFIG_PATH = "./config/inference_config.toml"
+
+# ロガーの取得
+logger = get_logger(__name__)
 
 
 def main():
@@ -40,7 +42,7 @@ def main():
         os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
     else:
         device = torch.device("cpu")
-    print(f"使用デバイス {device}")
+    logger.info(f"使用デバイス {device}")
 
     # 推論用のパラメータを取得
     threshold = cfg.parameter.threshold

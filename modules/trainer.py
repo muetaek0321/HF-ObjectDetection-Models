@@ -17,9 +17,13 @@ from transformers.image_transforms import center_to_corners_format
 from transformers.modeling_utils import PreTrainedModel
 
 from modules.schema import ModelType
+from modules.utils import get_logger
 
 # エラー対処
 matplotlib.use("Agg")
+
+# ロガーの取得
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -230,12 +234,12 @@ class Trainer:
         epoch = self.log["epoch"][-1]
         model_name = f"{epoch}_latest.pth"
         torch.save(self.model.state_dict(), self.output_path.joinpath(model_name))
-        print(f"model saved: {model_name}")
+        logger.info(f"model saved: {model_name}")
 
         # 最良のepochのモデル
         best_model_name = f"{self.best_epoch}_best.pth"
         torch.save(self.best_model.state_dict(), self.output_path.joinpath(best_model_name))
-        print(f"best model saved: {best_model_name} (best score: {self.best_score:.4f})")
+        logger.info(f"best model saved: {best_model_name} (best score: {self.best_score:.4f})")
 
     def output_learning_curve(self) -> None:
         """学習曲線の出力"""
