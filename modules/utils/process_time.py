@@ -30,6 +30,6 @@ class ProcessTimeManager:
 
         if self.is_print:
             if self.logger:
-                self.logger.info(f"{self.desc}: {self.proc_time:.2f}")
+                self.logger.info(f"{self.desc}: {self.proc_time:.4f}")
             else:
-                print(f"{self.desc}: {self.proc_time:.2f}")
+                print(f"{self.desc}: {self.proc_time:.4f}")
