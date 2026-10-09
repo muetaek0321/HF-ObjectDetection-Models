@@ -109,7 +109,7 @@ def rf_detr(
     label2id = {class_name: i for i, class_name in enumerate(classes)}
     if use_pretrained:
         model = RfDetrForObjectDetection.from_pretrained(
-            "Roboflow/rf-detr-small",
+            "Roboflow/rf-detr-base",
             ignore_mismatched_sizes=True,
             id2label=id2label,
             label2id=label2id,

@@ -1,6 +1,6 @@
 [project]
 name = "detr-huggingface"
-version = "0.1.0"
+version = "2.0.0"
 description = "Hugging Faceから利用可能なDETRモデルを使用して学習・推論を行うプロジェクト"
 readme = "README.md"
 requires-python = ">=3.13"
