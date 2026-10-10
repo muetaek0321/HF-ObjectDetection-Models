@@ -203,7 +203,7 @@ class Trainer:
         scale = pred_boxes.new_tensor([width, height, width, height])
         pred_boxes = center_to_corners_format(pred_boxes) * scale
 
-        if self.model_name == "detr":
+        if self.model_name == ModelType.DETR:
             probabilities = logits.softmax(dim=-1)[..., :-1]
         else:
             probabilities = logits.sigmoid()
